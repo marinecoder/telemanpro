@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: telemanpro-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: telegram_manager
+      MYSQL_USER: telemanpro
+      MYSQL_PASSWORD: telemanpro
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./setup/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - telemanpro-network
+
+  # PHP Web Interface
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    container_name: telemanpro-web
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./web:/var/www/html
+      - ./config:/var/www/config
+    depends_on:
+      - db
+      - api
+    networks:
+      - telemanpro-network
+
+  # Python API Server
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: telemanpro-api
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./sessions:/app/sessions
+      - ./logs:/app/logs
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_NAME=telegram_manager
+      - DB_USER=telemanpro
+      - DB_PASSWORD=telemanpro
+    networks:
+      - telemanpro-network
+
+networks:
+  telemanpro-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
